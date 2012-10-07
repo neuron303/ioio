@@ -1,6 +1,6 @@
 package at.wadl.smstest;
 
-import ioio.examples.hello.R;
+import at.wadl.smstest.R;
 import ioio.lib.api.DigitalOutput;
 import ioio.lib.api.exception.ConnectionLostException;
 import ioio.lib.util.BaseIOIOLooper;
@@ -11,6 +11,9 @@ import android.content.Context;
 import android.content.Intent;
 import android.content.IntentFilter;
 import android.os.Bundle;
+import android.telephony.SmsManager;
+import android.telephony.SmsMessage;
+import android.widget.Toast;
 import android.widget.ToggleButton;
 
 /**
@@ -28,13 +31,58 @@ public class MainActivity extends IOIOActivity {
         public void onReceive(Context context, Intent intent) {
         	MainActivity.this.receivedSms(intent);
         }
-    };
-    //= new SmsReceiver();
+	};
+	//= new SmsReceiver();
 
-    private void receivedSms(Intent intent)
-    {
-    	
-    }
+	private void receivedSms(Intent intent)
+	{
+		// Get SMS map from Intent
+		Bundle extras = intent.getExtras();
+
+		String messages = "";
+
+		if ( extras != null )
+		{
+			// Get received SMS array
+			Object[] smsExtra = (Object[]) extras.get( "pdus" );
+
+			for ( int i = 0; i < smsExtra.length; ++i )
+			{
+				SmsMessage sms = SmsMessage.createFromPdu((byte[])smsExtra[i]);
+
+				String body = sms.getMessageBody().toString();
+				String address = sms.getOriginatingAddress();
+
+				messages += "SMS from " + address + " :\n";                    
+				messages += body + "\n";
+				
+				boolean bOldStatus = m_Button.isChecked();
+				
+				if(true)
+				{
+					if(body.contains("on"))
+						m_Button.setChecked(true);
+					else if(body.contains("off"))
+						m_Button.setChecked(false);
+				}
+				
+				if(bOldStatus != m_Button.isChecked())
+				{
+					Toast.makeText( getApplicationContext(), "Button status changed", Toast.LENGTH_SHORT ).show();
+					
+					String sendText;
+					
+					if(m_Button.isChecked())
+						sendText = "Button switched on!";
+					else
+						sendText = "Button switched off!";
+					
+					SmsManager.getDefault().sendTextMessage(address, null, sendText, null, null);
+				}
+
+			}
+		}
+	}
 	/**
 	 * Called when the activity is first created. Here we normally initialize
 	 * our GUI.
@@ -48,6 +96,7 @@ public class MainActivity extends IOIOActivity {
 		smsReceiveIntentFilter.addAction("android.provider.Telephony.SMS_RECEIVED");
 		smsReceiveIntentFilter.setPriority(999);
 		this.registerReceiver(m_SmsReceiver, smsReceiveIntentFilter);
+		Toast.makeText(getApplicationContext(), "appstarted!", 5000).show();
 	}
 	
 	@Override
@@ -67,8 +116,6 @@ public class MainActivity extends IOIOActivity {
 		/** The on-board LED. */
 		private DigitalOutput led_;
 		private DigitalOutput relais_;
-		private boolean state_;
-		private float onTime_;
 
 		/**
 		 * Called every time a connection with IOIO has been established.
@@ -81,7 +128,6 @@ public class MainActivity extends IOIOActivity {
 		 */
 		@Override
 		protected void setup() throws ConnectionLostException {
-			onTime_ = 0;
 			led_ = ioio_.openDigitalOutput(0, true);
 			relais_ = ioio_.openDigitalOutput(16, true);
 		}
@@ -96,21 +142,6 @@ public class MainActivity extends IOIOActivity {
 		 */
 		@Override
 		public void loop() throws ConnectionLostException {
-			/*long time = 30;
-			onTime_+=0.01;
-			if(onTime_ > 1.0)
-				onTime_ = 0;
-			
-			led_.write(true);
-			try {
-				Thread.sleep((long)(onTime_*time));
-			} catch (InterruptedException e) {
-			}
-			led_.write(!button_.isChecked());
-			try {
-				Thread.sleep((long)((1.0-onTime_)*time));
-			} catch (InterruptedException e) {
-			}*/
 			led_.write(!m_Button.isChecked());
 			relais_.write(m_Button.isChecked());
 			try {
